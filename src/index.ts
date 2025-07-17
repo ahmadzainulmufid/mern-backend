@@ -3,31 +3,41 @@ import router from "./routes/api";
 import bodyParser from "body-parser";
 import db from "./utils/database";
 
-async function init() {
-  try {
-    const result = await db();
+const app = express();
 
-    console.log("database status: ", result);
-    const app = express();
-    app.use(bodyParser.json());
+app.use(bodyParser.json());
 
-    const PORT = 3000;
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "Server is Running",
+    data: null,
+  });
+});
 
-    app.get("/", (req, res) => {
-      res.status(200).json({
-        message: "Server is Running",
-        data: null,
-      });
-    });
+app.use("/api", router);
 
-    app.use("/api", router);
+// Flag untuk koneksi database
+let isConnected = false;
 
-    app.listen(PORT, () => {
-      console.log(`Server is Running on http://localhost:${PORT}`);
-    });
-  } catch (error) {
-    console.log(error);
+// Export default untuk Vercel (serverless handler)
+export default async function handler(req, res) {
+  if (!isConnected) {
+    await db();
+    console.log("Database Connected");
+    isConnected = true;
   }
+
+  return app(req, res); // Proxy express handler ke Vercel
 }
 
-init();
+// Untuk local development, pakai app.listen()
+if (process.env.NODE_ENV !== "production") {
+  const PORT = 3000;
+
+  db().then(() => {
+    console.log("Database Connected (Local)");
+    app.listen(PORT, () => {
+      console.log(`Local server running at http://localhost:${PORT}`);
+    });
+  });
+}
